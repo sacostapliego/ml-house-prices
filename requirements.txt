@@ -1,0 +1,27 @@
+# Core
+python-dateutil
+numpy
+pandas
+
+# ML
+scikit-learn
+joblib
+
+# API / Serving
+fastapi
+uvicorn[standard]
+pydantic
+
+# Utilities
+requests
+jupyterlab
+
+# (dev)
+black
+flake8
+
+# Visualization
+matplotlib
+seaborn
+xgboost
+lightgbm
