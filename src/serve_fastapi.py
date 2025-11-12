@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field, ConfigDict
 import joblib
 import uvicorn
 import pandas as pd
+from datetime import datetime, timedelta
 
 # --- Load Model ---
 model_path = "./models/random_forest_atlanta.joblib"
@@ -93,3 +94,59 @@ def predict_price(features: HouseFeaturesInput):
 # --- Run locally ---
 if __name__ == "__main__":
     uvicorn.run("serve_fastapi:app", host="127.0.0.1", port=8000, reload=True)
+    
+class SimplePredictionInput(BaseModel):
+    """Simplified input - just ZIP code."""
+    zip_code: int = Field(..., description="Atlanta ZIP code", example=30305)
+    months_ahead: int = Field(1, ge=1, le=12, description="Months to predict ahead")
+
+@app.post("/predict/simple")
+def predict_simple(input_data: SimplePredictionInput):
+    """
+    Predict home value for a ZIP code N months ahead.
+    Automatically calculates features from historical data.
+    """
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not available")
+    
+    try:
+        # Load historical data
+        df = pd.read_csv("./data/processed/atl_long.csv")
+        df["Date"] = pd.to_datetime(df["Date"])
+        
+        # Filter for the specific ZIP code
+        zip_data = df[df["RegionName"] == input_data.zip_code].sort_values("Date")
+        
+        if len(zip_data) == 0:
+            raise HTTPException(status_code=404, detail=f"ZIP code {input_data.zip_code} not found")
+        
+        # Get most recent data point
+        latest = zip_data.iloc[-1]
+        
+        # Calculate features automatically
+        features = {
+            "ZHVI_lag1": latest["ZHVI"],
+            "ZHVI_lag3": zip_data.iloc[-3]["ZHVI"] if len(zip_data) >= 3 else latest["ZHVI"],
+            "ZHVI_lag6": zip_data.iloc[-6]["ZHVI"] if len(zip_data) >= 6 else latest["ZHVI"],
+            "ZHVI_roll3": zip_data["ZHVI"].tail(3).mean(),
+            "ZHVI_roll6": zip_data["ZHVI"].tail(6).mean(),
+            "Year": (latest["Date"] + timedelta(days=30*input_data.months_ahead)).year,
+            "Month": (latest["Date"] + timedelta(days=30*input_data.months_ahead)).month
+        }
+        
+        # Make prediction
+        X = pd.DataFrame([features])
+        prediction = model.predict(X)[0]
+        
+        return {
+            "zip_code": input_data.zip_code,
+            "current_value": round(latest["ZHVI"], 2),
+            "predicted_value": round(prediction, 2),
+            "months_ahead": input_data.months_ahead,
+            "prediction_date": (latest["Date"] + timedelta(days=30*input_data.months_ahead)).strftime("%Y-%m-%d"),
+            "change": round(prediction - latest["ZHVI"], 2),
+            "percent_change": round(((prediction - latest["ZHVI"]) / latest["ZHVI"]) * 100, 2)
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Prediction error: {str(e)}")

@@ -25,3 +25,7 @@ matplotlib
 seaborn
 xgboost
 lightgbm
+
+# Streamlit
+streamlit
+plotly
