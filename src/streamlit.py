@@ -75,14 +75,3 @@ if st.sidebar.button("Predict", type="primary"):
         except Exception as e:
             st.error(f"Connection error: {str(e)}")
             st.info("Make sure the API server is running: `python src/serve_fastapi.py`")
-
-# Info section
-with st.expander("How it works"):
-    st.markdown("""
-    This model predicts Atlanta home values using:
-    - **Historical price trends** (1, 3, 6 months ago)
-    - **Rolling averages** (3, 6 months)
-    - **Seasonal patterns** (month/year)
-    
-    The predictions are based on Zillow Home Value Index (ZHVI) data.
-    """)
