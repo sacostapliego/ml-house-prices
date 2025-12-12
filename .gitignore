@@ -12,6 +12,7 @@ venv/
 # Data
 data/raw/*
 data/processed/*.csv
+data/processed/property_data/*.csv
 
 # Models
 models/*
